@@ -1,0 +1,20 @@
+library(readtext)
+library("pdftools")
+library("glue")
+library("tidyverse")
+library(quanteda)
+library(tabulizer)
+
+#generowanie adresu URL
+url <-
+  tidyr::expand_grid(lek) %>%
+  glue_data("https://www.ema.europa.eu/en/documents/overview/{lek}-epar-medicine-overview_pl.pdf")
+
+#tworzenie nazw dla pobranego PDF
+pdf <- 
+  tidyr::expand_grid(lek) %>%
+  glue_data("{lek}_medicine-overview_pl.pdf")
+
+#hurtowe zapisanie dokumentów PDF
+safe_download <- safely(~ download.file(.x, .y, mode = "wb"))
+walk2(url, pdf, safe_download)
