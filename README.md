@@ -217,10 +217,3 @@ Map=thematicMap(M, field = "ID", n = 250, minfreq = 5,
 plot(Map$map)
 ```
 
-
-## **Częstotliwość wystąpień nazw genów**
-
-Poni
-
-
-
