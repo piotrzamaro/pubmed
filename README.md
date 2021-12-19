@@ -1,302 +1,226 @@
 ---
-title: ""
-output: 
-  flexdashboard::flex_dashboard:
-    orientation: row
-    vertical_layout: scroll
-    social: menu
-    source_code: embed
-runtime: shiny
+title: "Eksploracja metadanych przeglądu literatury dot. szczepionek mRNA "
+author: "zamaro@outlook.com"
+output: html_document
 ---
 
-```{r setup, include=FALSE}
-library(flexdashboard)
-library(scales)
-library(dimensionsR)
+```{r setup, include=F, echo=F}
 library(bibliometrix)
 library(pubmedR)
 library(pubmed.mineR)
-library(readxl)
-library(RISmed)
-library(dplyr)
-require(quanteda)
-require(quanteda.textstats)
-require(quanteda.textplots)
-require(quanteda.corpora)
-require(ggplot2)
+library(lsa)
+library(bibliometrix)
+library(pubmedR)
 library(knitr)
-library(kableExtra)
-library(tidyr)
-library(DT)
-library(mgcv)
-
-
-load("~/ANALITYKA/AOTMiT/COVID-19/PUBMED/COVID-19/general_data.RData")
-load("~/ANALITYKA/AOTMiT/COVID-19/PUBMED/COVID-19/sum_data.RData")
-
-
-dataset <- general %>%
-    na.omit() %>%
-    separate(AU, sep = ";", into = "Autor") %>%
-    select("Kategoria" = label, "Dokument" = DT, "Nazwa" = item, "Tytuł" = TI,  Autor, "Źródło" = J9, PMID, "Rok" = PY, "Kraj" = SO_CO, "Język" = LA) 
-dataset$Rok <- as.character(dataset$Rok)
-
+library(wordcloud)
 ```
 
-```{r echo=F, eval = F}
+```{r include=F, echo = FALSE}
 api_key = "adb7c4029ba414a3108f116d2f609e4aae08" 
+query <- "(mrna vaccine*[Title/Abstract]) AND human[mh]"
+res <- pmQueryTotalCount(query, api_key)
+D <- pmApiRequest(query=query, limit=res$total_count, api_key=api_key)
+M <- pmApi2df(D, format = "bibliometrix")
+M$AU1_CO<- M$SO_CO
+M$AU_CO<- M$SO_CO
+M$CR <- M$SO_CO
+results <- biblioAnalysis(M)
+sum <- summary(results, k=10, pause=F, width=130)
+```
 
-
-
-treat <-'LitCTreatment[filter] AND human[mh] AND clinical trial[pt]'
-res_treat <- pmQueryTotalCount(treat, api_key)
-D_treat <- pmApiRequest(query=treat, limit=res_treat$total_count, api_key=api_key)
-M_treat <- pmApi2df(D_treat, format = "bibliometrix")
-M_treat <- M_treat %>%
-  mutate("search filter" = "TREATMENT")
+```{r include = F, echo = F}
+abs <- readabs("mrna_vaccine.txt")
+word_abs <- word_atomizations(abs)
 ```
 
 
-
-Metodyka
-=========================================
-
-Row 
------------------------------------------------------------------------
-
-### **Metodyka**
-
-Baza COVID-19 jest biblioteką skupiającą najnowsze źródła dotyczące globalnej pandemii wywołanej wirusem SARS-COV2.
-Zbiór zawiera źródła naukowe dotyczące badań klinicznych związanych z pandemią COVID-19. Źródłem danych jest baza NCBI PubMed . To przeszukania bazy PubMed użyto filtrów *LitCovid* zalecanych przez NCBI. Adnotacje zmiennych „Kategoria i Nazwa” stanowiące kluczowe konspecje semantyczne literatury biomedycznej uzyskano za pośrednictwem systemu PubTator łącząc je z numerami PMID. 
-Dostęp do bazy NCBI PubMed uzyskano przy użyciu klucza API. Uzyskane publikacje wraz z załączonymi metadanymi przetworzono na format zgony z wymaganiami pozostałych funkcji. 
-Analizę bibliometryczną przeprowadzono przy użyciu pakietu *Bibliometrix”. Adnotacje zmiennych „Kategoria i Nazwa” stanowiące kluczowe konspekcie semantyczne literatury biomedycznej uzyskano za pośrednictwem systemu PubTator łącząc je z numerami PMID. 
-Tabele dotyczące częstości występowania słów kluczowych oraz częstości adnotacji dotyczących substancji chemicznych i genów przedstawiają 15 pierwszych wystąpień użytego terminu biomedycznego. Liczba wystąpień rozumiana jest jako pojedyncze wystąpienie numeru identyfikacyjnego PubMed (PMID). 
-
-### **Kroki w procesie tworzenia zbioru**
-
-1. Przeszukanie bazy PubMed
-2. Wyszukanie adnotacji w bazie PubTator
-3. Przetworzenie uzyskanego zbioru
-4, Analiza bibliometryczna
-5. Budowa bazy źródeł naukowych 
-6. Wizualna eksploracja danych
-
-
-Row 
------------------------------------------------------------------------
-
-### **Słownik**
-
-Badania eksperymentalne
-=========================================
-
-Row 
------------------------------------------------------------------------
-
-
-
-### Zbiór zawiera źródła naukowe dotyczące badań klinicznych w kierunku leczenia COVID-19. Źródłem danych jest baza NCBI PubMed . Do przeszukania bazy użyto strategii *’LitCTreatment[filter] AND human[mh] AND clinical trial[pt]'*. Adnotacje zmiennych „Kategoria i Nazwa” stanowiące kluczowe konspecje semantyczne literatury biomedycznej uzyskano za pośrednictwem systemu PubTator łącząc je z numerami PMID. 
-```{r eval=F, fig.width=11}
-
-articles <- "Metodyka"
-
-valueBox(articles, icon = "ion-erlenmeyer-flask")
+```{r include=F, echo=F}
+main <- kable(sum$MainInformationDF[2:8,1:2], row.names = F)
+plots <- plot(x=results, k=10, pause=F)
+growrate <- sum$AnnualGrowthRate
+documents <- kable(sum$MainInformationDF[10:15,1:2], row.names = F)
+authors <- kable(sum$MainInformationDF[21:29,1:2], row.names = F)
+authors_prod <- kable(sum$MostProdAuthors[,1:2], row.names = F)
+keywords <- kable(sum$MostRelKeywords, row.names = F)
+sources <- kable(sum$MostRelSources, row.names = F)
+countries <- kable(sum$MostProdCountries[,1:4], row.names = F)
+countries_prod <- plot(x=results, k=10, pause=F)[2]
+wordsplot <- wordcloud(word_abs$words, word_abs$Freq, random.order=FALSE, rot.per=0.35,  colors=brewer.pal(8, "Dark2"), lang = "english")
+gene_abs <- gene_atomization(abs)
+CS <- conceptualStructure(M,field="ID", method="CA", minDegree=4, clust= 4, stemming=F, labelsize=7)
+dend <- CS$graph_dendogram
+concept <- CS$graph_terms
 ```
 
 
-### Liczba publikacji
+---
 
-```{r eval=F, fig.width=3}
-articles <- general %>%
-    summarise(n = n_distinct(PMID)) %>%
-    select(n)
-valueBox(articles, icon = "ion-erlenmeyer-flask")
+
+Analiza przeprowadzona na podstawie danych bibliometrycznych biblioteki PubMed. Dane dotycza publikacji zawierajacych w tytulach i abstraktach zwrot "vaccine*", "mRNA" oraz deskryptor "human[HT]" wraz z translacją słownika MeSH
+
+
+
+
+> ## **Dane wejściowe**
+
+
+**Zastosowana kwerenda:**
+
+``` {r echo = F}
+query
 ```
 
-###  Badania fazy I 
+**Translacja MeSH zapytania:** 
 
-```{r eval=F, fig.width=3}
-phase1 <- general %>%
-  filter(DT == "CLINICAL TRIAL, PHASE I") %>%
-    summarise(n = n_distinct(PMID)) %>%
-    select(n)
-valueBox(phase1, icon = "ion-erlenmeyer-flask")
-
-
+```{r echo = FALSE}
+res$query_translation
 ```
 
-### Badania fazy II
+**Liczba otrzymanych wyników:**
 
-```{r eval=F, fig.width=3}
-phase2 <- general %>%
-  filter(DT == "CLINICAL TRIAL, PHASE II") %>%
-    summarise(n = n_distinct(PMID)) %>%
-    select(n)
-valueBox(phase2, icon = "ion-erlenmeyer-flask")
-
+``` {r echo = FALSE}
+res$total_count
 ```
 
 
-### Badania fazy III
+---
 
-```{r, eval=F, fig.width=3}
-phase3 <- general %>%
-  filter(DT == "CLINICAL TRIAL, PHASE III") %>%
-    summarise(n = n_distinct(PMID)) %>%
-    select(n)
-valueBox(phase3, icon = "ion-erlenmeyer-flask")
+> ## **Charakterystyka otrzymanego zbioru**
 
-    
+Zakres czasowy otrzymanych publikacji obejmuje lata 2009-2020. Do analizy włączono 94 dokumenty, z czego 59 dotyczy publikacji naukowych. Liczba publikacji wzrastała średnio o 33,5% w porównaniu do roku poprzedniego.
+
+```{r echo=F}
+main
+```
+
+## **Roczny wskaźnik wzrostu liczby publikacji**
+
+```{r echo = F}
+growrate
+```
+
+---
+
+W 2020 r. opublikowano 24 publikacje dotyczące poruszanej tematyki. 
+
+#### **Rozkład publikacji w ujęciu rocznym**
+
+
+```{r echo = F, fig.width=12, fig.height=5}
+plots$AnnualScientProd
+```
+
+---
+
+
+
+
+> ### **Analiza bibliograficzna**
+
+Przegląd zawiera 77 artykułów opublikowanych w czasopismach naukowych. 6 publikacji dotyczy badań klinicnzych I fazy. 
+
+
+**Typy publikacji**
+
+```{r echo = F}
+documents
+```
+
+---
+
+> ### **Sieć współpracy naukowej**
+
+Sieć współpracy naukowej określa relację, w której obiektami są autorzy publikacji, natomiast nicie pomiędzy obiektami oznaczają autorów współtworzących publikację. Do
+
+```{r echo = F , fig.width=20, fig.height=20}
+NetMatrix <- biblioNetwork(M, analysis = "collaboration",  network = "authors", sep = ";")
+net=networkPlot(NetMatrix,  n = 30, Title = "Sieć relacji autorów (n=30)",type = "auto", size=15,size.cex=T,edgesize = 3,labelsize=1.5)
 ```
 
 
+### **Rozkład produktywności autorów i liczby cytowań w ujęciu rocznym**
 
-Column 
------------------------------------------------------------------------
+An
 
-### **Rodzaj źródła**
-
-```{r echo = F, eval= T, fig.width=4}
-general %>%
-    group_by(DT) %>%
-    summarise(n = n_distinct(PMID)) %>%
-    arrange(desc(n)) %>%
-    kableExtra::kbl(longtable = F, col.names = c("Dokument", "Liczba publikacji"))
-```
-
-
-
-### **Częstość słów kluczowych**
-
-```{r echo = F, eval= T}
-knitr::kable(sum$MostRelKeywords) 
-```
-
-
-### **Substancje**
-
-```{r echo = F, eval= T, fig.width=4}
-
-
-general %>%
-    filter(label == "chemical") %>%
-group_by(item) %>%
-    summarise(n = n_distinct(PMID)) %>%
-    arrange(desc(n)) %>%
-    head(15) %>%
-    kableExtra::kbl(longtable = F, col.names = c("Nazwa chemiczna", "Liczba publikacji"))
-```
-
-### **Geny**
-
-```{r echo = F, eval= T, fig.width=4}
-general %>%
-    filter(label == "gene") %>%
-group_by(item) %>%
-    summarise(n = n_distinct(PMID)) %>%
-    arrange(desc(n)) %>%
-    head(15) %>%
-    kableExtra::kbl(longtable = F, col.names = c("Nazwa genu", "Liczba publikacji"))
-
+```{r echo = F, fig.width= 10}
+top <- authorProdOverTime(M, k = 10, graph = TRUE)
 
 ```
 
+---
 
-Row
------------------------------------------------------------------------
+### **Charakterystyka ośrodków naukowych**
+
+```{r echo = F, fig.width=20, fig.height=20}
+NetMatrix <- biblioNetwork(M, analysis = "collaboration",  network = "universities", sep = ";")
+net=networkPlot(NetMatrix,  n =30, Title = "Sieć relacji ośrodków naukowych (n=30)",type = "circle", size=,size.cex=T,edgesize = 3,labelsize=1.5)
+```
+
+---
+
+### **Liczba artykułów w podziale na źródło publikacji - top n=10**
 
 
+```{r echo = F}
+sources
+```
 
-```{r echo = F, eval=F}
-general %>%
-    mutate("http" = "https://doi.org/") %>%
-    unite("Link", http, DI, sep = "") %>%
-    separate(AU, sep = ";", into = "Autor") %>%
-    select("Kategoria" = label, "Nazwa" = item, "Tytuł" = TI, "Typ dokumentu" = DT, Autor, "Źródło" = SO, "Słowa kluczowe" = ID, PMID, "Rok" = PY, Link) %>%
-    datatable(editable = T, extensions = 'Buttons', filter = 'top',
-              options = list(dom = 'Blfrtip',
-                             buttons = c('copy', 'csv', 'excel', 'pdf', 'print'),
-                             lengthMenu = list(c(10,25,50,-1),
-                                               c(10,25,50,"All"))))
+---
+
+> ## **Współwystępowanie słów kluczowych**
+
+
+```{r echo = F, fig.width=20, fig.height=10}
+biblio_keywords <- biblioNetwork(M, analysis = "co-occurrences", network = "keywords", sep = ";")
+net=networkPlot(biblio_keywords, normalize="association", weighted=T, n = 30, Title = "Współwystępowanie słów kluczowych (n=30)", type = "auto", size=T,edgesize = 5,labelsize=0.7)
+```
+
+### **Analiza CO-WORD**
+
+
+Eksploracja wyrazów ze względu na częstotliwość wystąpień w przeglądzie literatury
+
+
+```{r echo = F}
+wordsplot
+```
+
+> ## **Hierarchiczna analiza klastrów HCA**
+
+Wysokość klamry osi y wskazuje dystans między klastrami. Im wyższa wysokość połączenia między obserwacjami, tym mniej podobne są do siebie obiekty. Odległość na osi x nie stanowi kryterium podobieństwa. 
+
+```{r echo = F}
+dend
+```
+
+> ## **Analiza struktur pojęciowych**
+
+W analizie wykorzystano analizę korespondencji w celu wydobycia struktury pojęciowej wyrazów przez redukcję ich odmian i pochodnych. i Na podstawie otrzymanej struktury metodą k-średnich wyznaczono współrzędne k-punktów, będących środkiem klastra. Otrzymane klastry skupiają wyrazy o wspólnych pojęchach zredukowane do ich podstaw lub rdzenia. 
+
+```{r echo = F}
+concept
+```
+
+### **Mapa tematyczna**
+
+Mapa tematyczna klasyfikuje klastry wyrazów na podstawie stopnia jej wykorzystania w literaturze. 
+
+1. Prawa górna ćwiartka - terminologia techniczna (niezwiązana bezpośrednio z poruszanym tematem)
+2. Prawa dolna ćwiartka - terminologia podstawowa (tworząca fundament literatury)
+3. Lewa górna ćwiartka - terminologia bardzo specjalistyczna lub niszowa 
+4. Lewa dolna ćwiartka-  terminologia dodatkowa (terminy związane z analizowanym tematem, które w literaturze pojawiają się fakultatywnie)
+
+
+```{r echo = F}
+Map=thematicMap(M, field = "ID", n = 250, minfreq = 5,
+                stemming = FALSE, size = 0.5, n.labels=3, repel = TRUE)
+plot(Map$map)
 ```
 
 
-Row
------------------------------------------------------------------------
+## **Częstotliwość wystąpień nazw genów**
+
+Poni
 
 
 
-Badania obserwacyjne
-=========================================
-
-
-
-#Badania przedkliniczne
-=========================================
-
-
-
-
-Diagnostyka
-=========================================
-
-
-Eksploracja danych
-=========================================
-
-Inputs {.sidebar}
------------------------------------------------------------------------
-
-```{r echo=F, eval=F}
-sliderInput('sampleSize', 'Liczba wystąpień obserwacji', min=1, max=nrow(dataset), dragRange = F,
-            value=min(1000, nrow(dataset)), step=500, round=0)
-
-checkboxInput('jitter', 'Jitter', value = TRUE)
-checkboxInput('smooth', 'Smooth', value = TRUE)
-
-selectInput('x', 'X', names(dataset))
-selectInput('y', 'Y', names(dataset), names(dataset)[[2]])
-selectInput('color', 'Kolor', c('None', names(dataset)))
-selectInput('shape', 'Kształt', c('None', names(dataset)))
-
-
-selectInput('facet_row', 'Podziałwzględem wiersza',
-            c(None='.', names(dataset[sapply(dataset, is.factor)])))
-selectInput('facet_col', 'Podziałwzględem kolumny',
-            c(None='.', names(dataset[sapply(dataset, is.factor)])))
-```
-
-Outputs
------------------------------------------------------------------------
-
-### Eksploracja danych
-
-
-```{r echo = F, fig.height=8}
-dataset1 <- reactive({
-  dataset[sample(nrow(dataset), input$sampleSize),]
-})
-
-renderPlot({
-  p <- ggplot(dataset1(), aes_string(x=input$x, y=input$y)) + geom_point() + theme_minimal(base_size =15, )
-  
-  if (input$color != 'None')
-    p <- p + aes_string(color=input$color)
-  
-  
-  if (input$shape != 'None')
-    p <- p + aes_string(shape=input$shape)
-  
-  facets <- paste(input$facet_row, '~', input$facet_col)
-  if (facets != '. ~ .')
-    p <- p + facet_grid(facets)
-  
-  if (input$jitter)
-    p <- p + geom_jitter()
-  if (input$smooth)
-    p <- p + geom_smooth()
-  
-  print(p)
-})
-
-```
